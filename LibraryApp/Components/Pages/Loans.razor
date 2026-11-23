@@ -1,0 +1,32 @@
+@page "/loans"
+@inject ILibraryService Library
+<PageTitle>Borrow / Return</PageTitle><h1>Borrow / Return</h1>
+@if (message.Length > 0) { <p role="status" class="notice">@message</p> }
+<section><h2>Borrow a book</h2><EditForm Model="request" OnValidSubmit="Borrow" FormName="borrow"><DataAnnotationsValidator /><ValidationSummary />
+<label>User<InputSelect @bind-Value="request.UserId"><option value="0">Select a user</option>@foreach (var user in users) { <option value="@user.Id">@user.Name (#@user.Id)</option> }</InputSelect></label>
+<label>Available book<InputSelect @bind-Value="request.BookId"><option value="0">Select a book</option>@foreach (var book in available) { <option value="@book.Id">@book.Title — @book.Author (#@book.Id)</option> }</InputSelect></label>
+<button type="submit" disabled="@(available.Count == 0 || users.Count == 0)">Borrow book</button></EditForm>
+@if (available.Count == 0) { <p>No books are available.</p> } @if (users.Count == 0) { <p>Add a user before borrowing.</p> }</section>
+<section><h2>Return books</h2><label>User<select @bind="returnUser" @bind:after="ClearSelection"><option value="0">Select a borrower</option>@foreach (var loan in loans) { <option value="@loan.Key.Id">@loan.Key.Name (#@loan.Key.Id)</option> }</select></label>
+@foreach (var book in Returnable) { <label class="check"><input type="checkbox" checked="@selected.Contains(book.Id)" @onchange="e => Select(book.Id, e.Value is true)" />@book.Title — @book.Author</label> }
+<button @onclick="Return" disabled="@(selected.Count == 0)">Return selected books</button></section>
+<h2>Borrowed books by user</h2>
+@if (loans.Count == 0) { <p>No books are currently borrowed.</p> }
+@foreach (var loan in loans) { <section><h3>@loan.Key.Name (#@loan.Key.Id)</h3><ul>@foreach (var book in loan.Value) { <li>@book.Title by @book.Author (ISBN: @book.ISBN)</li> }</ul></section> }
+@code {
+    private BorrowRequest request = new();
+    private IReadOnlyList<User> users = Array.Empty<User>();
+    private List<Book> available = new();
+    private IReadOnlyDictionary<User, List<Book>> loans = new Dictionary<User, List<Book>>();
+    private HashSet<int> selected = new();
+    private int returnUser;
+    private string message = "";
+    private IEnumerable<Book> Returnable => loans.FirstOrDefault(p => p.Key.Id == returnUser).Value ?? Enumerable.Empty<Book>();
+    protected override void OnInitialized() => Refresh();
+    private void Refresh() { users = Library.ReadUsers(); loans = Library.GetBorrowedBooks(); var borrowed = loans.Values.SelectMany(x => x).Select(b => b.Id).ToHashSet(); available = Library.ReadBooks().Where(b => !borrowed.Contains(b.Id)).ToList(); }
+    private void ClearSelection() => selected.Clear();
+    private void Select(int id, bool value) { if (value) selected.Add(id); else selected.Remove(id); }
+    private void Borrow() { try { Library.BorrowBook(request.UserId, request.BookId); request.BookId = 0; message = "Book borrowed."; } catch (InvalidOperationException ex) { message = ex.Message; } Refresh(); }
+    private void Return() { try { Library.ReturnBooks(returnUser, selected); selected.Clear(); message = "Selected books returned."; } catch (InvalidOperationException ex) { message = ex.Message; } Refresh(); }
+    private class BorrowRequest { [Range(1, int.MaxValue, ErrorMessage = "Select a user.")] public int UserId { get; set; } [Range(1, int.MaxValue, ErrorMessage = "Select a book.")] public int BookId { get; set; } }
+}

@@ -1,0 +1,28 @@
+@page "/users"
+@inject ILibraryService Library
+<PageTitle>Users</PageTitle><h1>User Management</h1>
+@if (message.Length > 0) { <p role="status" class="notice">@message</p> }
+<section><h2>@(model.Id == 0 ? "Add user" : "Edit user")</h2>
+<EditForm Model="model" OnValidSubmit="Save" FormName="users" @key="model"><DataAnnotationsValidator />
+<label>Name<InputText @bind-Value="model.Name" /></label><ValidationMessage For="() => model.Name" />
+<label>Email<InputText @bind-Value="model.Email" /></label><ValidationMessage For="() => model.Email" />
+<div class="actions"><button type="submit">@(model.Id == 0 ? "Add user" : "Save changes")</button><button type="button" class="secondary" @onclick="Cancel">Cancel</button></div></EditForm></section>
+<label>Search users<input @bind="search" @bind:event="oninput" /></label>
+<p>@Filtered.Count() users shown</p>
+@if (pendingDelete is not null) { <div class="notice" role="alert">Delete user #@pendingDelete? <button @onclick="ConfirmDelete">Confirm delete</button><button class="secondary" @onclick="() => pendingDelete = null">Cancel</button></div> }
+<div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Actions</th></tr></thead><tbody>
+@foreach (var item in Filtered) { <tr @key="item.Id"><td>@item.Id</td><td>@item.Name</td><td>@item.Email</td><td class="actions"><button @onclick="() => Edit(item)">Edit</button><button class="danger" @onclick="() => pendingDelete = item.Id">Delete</button></td></tr> }
+</tbody></table></div>
+@code {
+    private User model = new();
+    private IReadOnlyList<User> items = Array.Empty<User>();
+    private string message = "", search = "";
+    private int? pendingDelete;
+    private IEnumerable<User> Filtered => items.Where(i => i.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || i.Email.Contains(search, StringComparison.OrdinalIgnoreCase));
+    protected override void OnInitialized() => Refresh();
+    private void Refresh() => items = Library.ReadUsers();
+    private void Edit(User item) { model = new() { Id = item.Id, Name = item.Name, Email = item.Email }; message = ""; }
+    private void Cancel() { model = new(); message = ""; }
+    private void Save() { try { if (model.Id == 0) Library.AddUser(model); else Library.EditUser(model); model = new(); message = "User saved."; Refresh(); } catch (Exception ex) when (ex is InvalidOperationException or ValidationException or IOException or UnauthorizedAccessException) { message = ex.Message; } }
+    private void ConfirmDelete() { try { Library.DeleteUser(pendingDelete!.Value); if (model.Id == pendingDelete) model = new(); message = "User deleted."; Refresh(); } catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException) { message = ex.Message; } pendingDelete = null; }
+}

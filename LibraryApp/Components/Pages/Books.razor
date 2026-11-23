@@ -1,0 +1,29 @@
+@page "/books"
+@inject ILibraryService Library
+<PageTitle>Books</PageTitle><h1>Book Management</h1>
+@if (message.Length > 0) { <p role="status" class="notice">@message</p> }
+<section><h2>@(model.Id == 0 ? "Add book" : "Edit book")</h2>
+<EditForm Model="model" OnValidSubmit="Save" FormName="books" @key="model"><DataAnnotationsValidator />
+<label>Title<InputText @bind-Value="model.Title" /></label><ValidationMessage For="() => model.Title" />
+<label>Author<InputText @bind-Value="model.Author" /></label><ValidationMessage For="() => model.Author" />
+<label>ISBN<InputText @bind-Value="model.ISBN" /></label><ValidationMessage For="() => model.ISBN" />
+<div class="actions"><button type="submit">@(model.Id == 0 ? "Add book" : "Save changes")</button><button type="button" class="secondary" @onclick="Cancel">Cancel</button></div></EditForm></section>
+<label>Search books<input @bind="search" @bind:event="oninput" /></label>
+<p>@Filtered.Count() books shown</p>
+@if (pendingDelete is not null) { <div class="notice" role="alert">Delete book #@pendingDelete? <button @onclick="ConfirmDelete">Confirm delete</button><button class="secondary" @onclick="() => pendingDelete = null">Cancel</button></div> }
+<div class="table-wrap"><table><thead><tr><th>ID</th><th>Title</th><th>Author</th><th>ISBN</th><th>Actions</th></tr></thead><tbody>
+@foreach (var item in Filtered) { <tr @key="item.Id"><td>@item.Id</td><td>@item.Title</td><td>@item.Author</td><td>@item.ISBN</td><td class="actions"><button @onclick="() => Edit(item)">Edit</button><button class="danger" @onclick="() => pendingDelete = item.Id">Delete</button></td></tr> }
+</tbody></table></div>
+@code {
+    private Book model = new();
+    private IReadOnlyList<Book> items = Array.Empty<Book>();
+    private string message = "", search = "";
+    private int? pendingDelete;
+    private IEnumerable<Book> Filtered => items.Where(i => i.Title.Contains(search, StringComparison.OrdinalIgnoreCase) || i.Author.Contains(search, StringComparison.OrdinalIgnoreCase) || i.ISBN.Contains(search, StringComparison.OrdinalIgnoreCase));
+    protected override void OnInitialized() => Refresh();
+    private void Refresh() => items = Library.ReadBooks();
+    private void Edit(Book item) { model = new() { Id = item.Id, Title = item.Title, Author = item.Author, ISBN = item.ISBN }; message = ""; }
+    private void Cancel() { model = new(); message = ""; }
+    private void Save() { try { if (model.Id == 0) Library.AddBook(model); else Library.EditBook(model); model = new(); message = "Book saved."; Refresh(); } catch (Exception ex) when (ex is InvalidOperationException or ValidationException or IOException or UnauthorizedAccessException) { message = ex.Message; } }
+    private void ConfirmDelete() { try { Library.DeleteBook(pendingDelete!.Value); if (model.Id == pendingDelete) model = new(); message = "Book deleted."; Refresh(); } catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException) { message = ex.Message; } pendingDelete = null; }
+}

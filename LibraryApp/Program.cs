@@ -1,0 +1,10 @@
+using LibraryApp.Components;
+using LibraryApp.Services;
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+builder.Services.AddSingleton<ILibraryService, LibraryService>();
+var app = builder.Build();
+app.UseAntiforgery();
+app.MapStaticAssets();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+app.Run();
