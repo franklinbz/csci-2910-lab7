@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore LibraryApp.sln
+
+      - name: Build
+        run: dotnet build LibraryApp.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test LibraryApp.Tests/LibraryApp.Tests.csproj --configuration Release --no-build --no-restore
