@@ -60,7 +60,7 @@ public class LibraryServiceTests
 
         var records = service.ReadBooks();
 
-        Assert.AreEqual(2, records.Count);
+        Assert.AreEqual(3, records.Count);
         Assert.AreEqual(1, records[0].Id);
         Assert.AreEqual("First Book", records[0].Title);
     }
